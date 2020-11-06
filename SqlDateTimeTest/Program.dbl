@@ -1,0 +1,207 @@
+
+import SynPSG.DatabaseTools
+
+main
+    ;.define D_DatabaseType      DatabaseType.SQLServer
+    .define D_DatabaseType      DatabaseType.MySQL8
+
+    .define D_ConnectionType    ConnectionType.Local
+    ;.define D_ConnectionType    ConnectionType.Remote
+
+    .define D_DatabaseName      "synergytestdb"
+    .define D_DatabaseUser      "syntest"
+    .define D_DatabasePassword  "syntest"
+
+    .define D_DatabaseServer    "localhost"
+    .define D_DatabasePort      1958
+
+    .include "CONNECTDIR:ssql.def"
+    record
+        ok,                 boolean, true
+        tt,                 i4
+        connected,          boolean
+        cursorOpen,         boolean
+        doCreateDatabase,   boolean
+        databaseCreated,    boolean
+        db,                 i4
+        cr,                 i4
+        status,             i4
+        sql,                string
+    endrecord
+
+    structure strDate
+        group date,         d8
+            year,           d4
+            month,          d2
+            day,            d2
+        endgroup
+        ,                   d6
+    endstructure
+
+    structure strTime
+        ,                   d8
+        group time,         d6
+            hour,           d2
+            minute,         d2
+            second,         d2
+        endgroup
+    endstructure
+
+    structure strDateTime
+        group datetime,     d14
+            group date,     d8
+                year,       d4
+                month,      d2
+                day,        d2
+            endgroup
+            group time,     d6
+                hour,       d2
+                minute,     d2
+                second,     d2
+            endgroup
+        endgroup
+    endstructure
+
+    record EMPLOYEE
+        EMP_ID,             D6                 
+        EMP_FIRST_NAME,     A20                
+        EMP_LAST_NAME,      A20                
+        EMP_DEPT,           A15                
+        EMP_HIRE_DATE,      strDate
+        EMP_HIRE_TIME,      strTime           
+        EMP_PHONE_WORK,     A14                
+        EMP_PHONE_CELL,     A14                
+        EMP_PAID,           D1                 
+        EMP_DATE_OF_BIRTH,  strDateTime
+        EMP_EMAIL,          A40                
+        EMP_ADDRESS_STREET, A30                
+        EMP_ADDRESS_CITY,   A20                
+        EMP_ADDRESS_STATE,  A2                 
+        EMP_ADDRESS_ZIP,    D5                 
+    endrecord
+
+proc
+    ; Configure the environment
+
+    open(tt=0,i,"tt:")
+    xcall flags(7004020,1)
+
+
+    ; Enable SQL Connection
+
+    .ifdef OS_VMS
+    xcall init_ssql
+    .else
+    status = %option(48,1)
+    .endc
+
+    ; Initialize SQL Connection
+
+    ok = (%ssc_init(db=1) == SSQL_NORMAL)
+
+    ; Connect and log in to MySQL
+
+    if (ok)
+    begin
+        data connectString = Db.GetConnectString(D_DatabaseType,D_ConnectionType,D_DatabaseUser,D_DatabasePassword,D_DatabaseName,D_DatabaseServer,D_DatabasePort)
+
+        if (%ssc_connect(db=1,connectString) == SSQL_NORMAL) then
+        begin
+            set ok, connected = true
+            writes(tt,"Connected and logged in")
+        end
+        else
+            Db.LogDatabaseError(db,tt,"Failed to connect to database!")
+    end
+
+    ; Configure date format to YYYYMMDDHHMMSS
+
+    if (ok && connected)
+    begin
+        ; By default SQL Connection returns DATE, TIME and DATETIME fields as DD-MON-YYYY HH:MI:SS. E.g "25-DEC-2020 09:30:00"
+        ; So by default you must use an A20 field for MySQL DATE fields.
+        ; This command causes DATE, TIME and DATETIME fields to be returned as a D14 in YYYYMMDDHHMISS format.
+        ; You MUST also cast the decimal variable to ALPHA with ^A when data binding with %SSC_DEFINE. (see EMP_HIRE_DATE in this code)
+        ; OR .. overlay the D8 with an A8 and use the A8 for binding (see EMP_DATE_OF_BIRTH in this code)
+        ;        xcall ssc_option(db,SSQL_SETOPT,-1721378,"YYYYMMDD",0)
+        xcall ssc_option(db,SSQL_SETOPT,-1721378,"YYYYMMDDHHMISS",0)
+    end
+
+    ; Select and display an employee record
+
+    if (ok && connected)
+    begin
+        ; Define the SQL statement to execute
+        sql = "SELECT EmpId,EmpHireDate,EmpHireTime,EmpDateOfBirth FROM employee WHERE EmpId=1"
+
+        ; Open cursor
+        if (%ssc_open(db,cr,sql,SSQL_SELECT) == SSQL_NORMAL) then
+        begin
+            cursorOpen = true
+
+            ; Define host variables
+            if (%ssc_define(db,cr,4,EMP_ID,^a(EMP_HIRE_DATE),^a(EMP_HIRE_TIME),EMP_DATE_OF_BIRTH) == SSQL_NORMAL) then
+            begin
+                ; Execute cursor
+                if (%ssc_move(db,cr) == SSQL_NORMAL) then
+                begin
+                    writes(tt,"Row retrieved")
+                    call PrintEmployee
+
+                    ; Close cursor
+                    if (%ssc_close(db,cr) != SSQL_NORMAL)
+                    begin
+                        Db.LogDatabaseError(db,tt,"Failed to close cursor!")
+                    end
+                end
+                else
+                begin
+                    Db.LogDatabaseError(db,tt,"Failed to SELECT row!")
+                end
+            end
+            else
+            begin
+                Db.LogDatabaseError(db,tt,"Failed to define host variables!")
+            end
+        end
+        else
+        begin
+            Db.LogDatabaseError(db,tt,"Failed to open cursor!")
+        end
+
+    end
+
+    ; Disconnect from the database
+
+    if (connected)
+    begin
+        connected = %ssc_release(db)
+        writes(tt,"Connection closed")
+    end
+
+    ; Disable SQL Connection
+
+    .ifndef OS_VMS
+    status = %option(48,0)
+    .endc
+
+    ; All done
+
+    begin
+        data achar, a1
+        display(tt,"Press a key: ")
+        accept(tt,achar)
+    end
+
+    close tt
+
+    stop
+
+PrintEmployee,
+    writes(tt," - EMP_ID                        : " + ^a(EMP_ID))
+    writes(tt," - EMP_HIRE_DATE          (DATE) : " + %string(EMP_HIRE_DATE.date,"XXXX-XX-XX"))
+    writes(tt," - EMP_HIRE_TIME          (TIME) : " + %string(EMP_HIRE_TIME.time,"XX:XX:XX"))
+    writes(tt," - EMP_DATE_OF_BIRTH  (DATETIME) : " + %string(EMP_DATE_OF_BIRTH.datetime,"XXXX-XX-XX XX:XX:XX"))
+    return
+
+endmain

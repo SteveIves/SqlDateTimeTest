@@ -1,0 +1,194 @@
+namespace SynPSG.DatabaseTools
+
+    public enum DatabaseType
+        SQLServer
+        MySQL8
+    endenum
+
+    public enum ConnectionType
+        Local
+        Remote
+    endenum
+
+    public class Db
+		
+        public static method DatabaseExists, boolean 
+            required in databaseConnection, i
+            required in logChannel, n
+            required in databaseName, string
+
+            .include "CONNECTDIR:ssql.def"
+
+            stack record
+                cr,                 i4
+                sql,                string
+                databaseNameFound,  a80
+                databaseExists,     boolean
+            endrecord
+
+        proc
+            ; Set SQL statement
+            sql = "select schema_name from information_schema.schemata where schema_name = '" + databaseName + "'"
+            databaseExists = false
+
+            ; Open cursor
+            if (%ssc_open(databaseConnection,cr=0,sql,SSQL_SELECT) == SSQL_NORMAL) then
+            begin
+                ; Define host variables
+                if (%ssc_define(databaseConnection,cr,1,databaseNameFound) == SSQL_NORMAL) then
+                begin
+                    ; Execute cursor
+                    using %ssc_move(databaseConnection,cr) select
+                    (SSQL_NORMAL),
+                    begin
+                        databaseExists = true
+                    end
+                    (SSQL_NOMORE),
+                    begin
+                        nop
+                    end
+                    (),
+                    begin
+                        LogDatabaseError(databaseConnection,logChannel,"Failed to execute database exists cursor!")
+                    end
+                    endusing
+                end
+                else
+                begin
+                    LogDatabaseError(databaseConnection,logChannel,"Failed to define database exists host variables!")
+                end
+
+                ; Close cursor
+                xcall ssc_close(databaseConnection,cr)
+            end
+            else
+            begin
+                LogDatabaseError(databaseConnection,logChannel,"Failed to open database exists cursor!")
+            end
+
+            mreturn databaseExists
+
+        endmethod
+
+        public static method ExecuteNonSelect, boolean 
+            required in databaseConnection, i
+            required in logChannel, n
+            required in sqlStatement, string
+            required in description, string
+            .include "CONNECTDIR:ssql.def"
+            stack record
+                cr, i4
+            endrecord
+        proc
+            ; Open cursor
+            if (%ssc_open(databaseConnection,cr=0,sqlStatement,SSQL_NONSEL) == SSQL_NORMAL) then
+            begin
+                ; Execute cursor
+                if (%ssc_execute(databaseConnection,cr) == SSQL_NORMAL) then
+                begin
+                    ; Close cursor
+                    if (%ssc_close(databaseConnection,cr) == SSQL_NORMAL) then
+                    begin
+                        mreturn true
+                    end
+                    else
+                    begin
+                        LogDataBaseError(databaseConnection,logChannel,"Failed to close " + description + " cursor!")
+                    end
+                end
+                else
+                begin
+                    LogDataBaseError(databaseConnection,logChannel,"Failed to execute " + description + " sursor!")
+                end
+            end
+            else
+            begin
+                LogDataBaseError(databaseConnection,logChannel,"Failed open " + description + " cursor!")
+            end
+
+            mreturn false
+
+        end
+
+        public static method GetConnectString, string
+            required in dbType, DatabaseType
+            required in conType, ConnectionType
+            required in aUsername, string
+            required in aPassword, string
+            required in aDatabase, string
+            optional in aServerName, string
+            optional in aPort, int
+            record
+                conString, string
+            endrecord
+        proc
+
+            using dbType select
+            (DatabaseType.SQLServer),
+            begin
+                using conType select
+                (ConnectionType.Local),
+                begin
+                    conString = "VTX12_SQLNATIVE:"+aUsername.Trim()+"/"+aPassword.Trim()+"/"+aDatabase.Trim()+"/.///"
+                end
+                (ConnectionType.Remote),
+                begin
+                    conString = "net:"+aUsername.Trim()+"/"+aPassword.Trim()+"/"+aDatabase.Trim()+"/"+aServerName.Trim()+"///@"+%string(aPort)+":"+aServerName.Trim()+"!VTX12_SQLNATIVE"
+                end
+                endusing
+            end
+            (DatabaseType.MySQL8),
+            begin
+                using conType select
+                (ConnectionType.Local),
+                begin
+                    conString = "VTX14_8:"+aUsername.Trim()+"/"+aPassword.Trim()+"/"+aDatabase.Trim()
+                end
+                (ConnectionType.Remote),
+                begin
+                    conString = "net:"+aUsername.Trim()+"/"+aPassword.Trim()+"/"+aDatabase.Trim()+"@"+%string(aPort)+":"+aServerName.Trim()+"!VTX14_8"
+                end
+                endusing
+            end
+            endusing
+
+            mreturn conString
+
+        endmethod
+
+        public static method LogDatabaseError, void
+            required in databaseConnection, i
+            required in logChannel, n
+            required in errorMessage, string
+
+            .include "CONNECTDIR:ssql.def"
+
+            stack record
+                dberror,    a1024
+                dberrlen,   int
+            endrecord
+        proc
+            ; Report the main error
+            writes(logChannel,"ERROR: " + errorMessage)
+
+            ; Add any database specific error info
+            if (%ssc_getemsg(databaseConnection,dberror,dberrlen) == SSQL_NORMAL) then
+            begin
+                if (dberrlen) then
+                begin
+                    writes(logChannel," - " + dberror(1:dberrlen))
+                end
+                else
+                begin
+                    writes(logChannel," - No database error available")
+                end
+            end
+            else
+            begin
+                writes(logChannel," - No database error available")
+            end
+        endmethod
+
+    endclass
+
+endnamespace

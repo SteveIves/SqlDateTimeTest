@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30406.217
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "SqlDateTimeTest", "SqlDateTimeTest\SqlDateTimeTest.synproj", "{916D647C-56F7-449B-8409-700DF327557A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{916D647C-56F7-449B-8409-700DF327557A}.Debug|x64.ActiveCfg = Debug|x64
+		{916D647C-56F7-449B-8409-700DF327557A}.Debug|x64.Build.0 = Debug|x64
+		{916D647C-56F7-449B-8409-700DF327557A}.Debug|x86.ActiveCfg = Debug|x86
+		{916D647C-56F7-449B-8409-700DF327557A}.Debug|x86.Build.0 = Debug|x86
+		{916D647C-56F7-449B-8409-700DF327557A}.Release|x64.ActiveCfg = Release|x64
+		{916D647C-56F7-449B-8409-700DF327557A}.Release|x64.Build.0 = Release|x64
+		{916D647C-56F7-449B-8409-700DF327557A}.Release|x86.ActiveCfg = Release|x86
+		{916D647C-56F7-449B-8409-700DF327557A}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4AFB2DCF-B20A-4A2C-A305-FF3F01062A08}
+	EndGlobalSection
+EndGlobal

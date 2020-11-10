@@ -63,21 +63,21 @@ main
     endstructure
 
     record EMPLOYEE
-        EMP_ID,             D6                 
-        EMP_FIRST_NAME,     A20                
-        EMP_LAST_NAME,      A20                
-        EMP_DEPT,           A15                
+        EMP_ID,             D6
+        EMP_FIRST_NAME,     A20
+        EMP_LAST_NAME,      A20
+        EMP_DEPT,           A15
         EMP_HIRE_DATE,      strDate
-        EMP_HIRE_TIME,      strTime           
-        EMP_PHONE_WORK,     A14                
-        EMP_PHONE_CELL,     A14                
-        EMP_PAID,           D1                 
+        EMP_HIRE_TIME,      strTime
+        EMP_PHONE_WORK,     A14
+        EMP_PHONE_CELL,     A14
+        EMP_PAID,           D1
         EMP_DATE_OF_BIRTH,  strDateTime
-        EMP_EMAIL,          A40                
-        EMP_ADDRESS_STREET, A30                
-        EMP_ADDRESS_CITY,   A20                
-        EMP_ADDRESS_STATE,  A2                 
-        EMP_ADDRESS_ZIP,    D5                 
+        EMP_EMAIL,          A40
+        EMP_ADDRESS_STREET, A30
+        EMP_ADDRESS_CITY,   A20
+        EMP_ADDRESS_STATE,  A2
+        EMP_ADDRESS_ZIP,    D5
     endrecord
 
 proc

@@ -15,6 +15,34 @@ main
     .define D_DatabaseServer    "localhost"
     .define D_DatabasePort      1958
 
+    ; If a program needs to access date and time fields, the only way to do that with SQL Connection
+    ; is to format all date and time fields as full datetime values, vis temporary variables, then
+    ; move the data out of the temporary variables into the date and time fields in your records.
+    ; This structure is a useful way to define the datetime fields in such a way that it is easy to
+    ; access the required underlying D8 or D6 date values, and D6 or D4 times values.
+    structure strDateTime
+        group datetime,     d14
+            group date8,    d8
+                year,       d4
+                month,      d2
+                day,        d2
+            endgroup
+            group date6,    d6, X
+                year,       d4
+                month,      d2
+            endgroup
+            group time6,    d6
+                hour,       d2
+                minute,     d2
+                second,     d2
+            endgroup
+            group time4,    d4, X
+                hour,       d2
+                minute,     d2
+            endgroup
+        endgroup
+    endstructure
+
     .include "CONNECTDIR:ssql.def"
     record
         ok,                 boolean, true
@@ -27,57 +55,31 @@ main
         cr,                 i4
         status,             i4
         sql,                string
+        ; Declare temp DateTime storage for any date or time fields to be retrieved
+        tmpEmpHireDate,     strDateTime
+        tmpEmpHireTime,     strDateTime
+        tmpEmpDateOfBirth,  strDateTime
     endrecord
 
-    structure strDate
-        group date,         d8
-            year,           d4
-            month,          d2
-            day,            d2
+    record employee
+        emp_id,             d6
+        emp_first_name,     a20
+        emp_last_name,      a20
+        emp_dept,           a15
+        emp_hire_date,      d8
+        emp_hire_time,      d4
+        emp_phone_work,     a14
+        emp_phone_cell,     a14
+        emp_paid,           d1
+        group emp_birth,    d
+            date,           d8
+            time,           d4
         endgroup
-        ,                   d6
-    endstructure
-
-    structure strTime
-        ,                   d8
-        group time,         d6
-            hour,           d2
-            minute,         d2
-            second,         d2
-        endgroup
-    endstructure
-
-    structure strDateTime
-        group datetime,     d14
-            group date,     d8
-                year,       d4
-                month,      d2
-                day,        d2
-            endgroup
-            group time,     d6
-                hour,       d2
-                minute,     d2
-                second,     d2
-            endgroup
-        endgroup
-    endstructure
-
-    record EMPLOYEE
-        EMP_ID,             D6
-        EMP_FIRST_NAME,     A20
-        EMP_LAST_NAME,      A20
-        EMP_DEPT,           A15
-        EMP_HIRE_DATE,      strDate
-        EMP_HIRE_TIME,      strTime
-        EMP_PHONE_WORK,     A14
-        EMP_PHONE_CELL,     A14
-        EMP_PAID,           D1
-        EMP_DATE_OF_BIRTH,  strDateTime
-        EMP_EMAIL,          A40
-        EMP_ADDRESS_STREET, A30
-        EMP_ADDRESS_CITY,   A20
-        EMP_ADDRESS_STATE,  A2
-        EMP_ADDRESS_ZIP,    D5
+        emp_email,          a40
+        emp_address_street, a30
+        emp_address_city,   a20
+        emp_address_state,  a2
+        emp_address_zip,    d5
     endrecord
 
 proc
@@ -132,7 +134,7 @@ proc
     if (ok && connected)
     begin
         ; Define the SQL statement to execute
-        sql = "SELECT EmpId,EmpHireDate,EmpHireTime,EmpDateOfBirth FROM employee WHERE EmpId=1"
+        sql = "SELECT * FROM employee WHERE EmpId=1"
 
         ; Open cursor
         if (%ssc_open(db,cr,sql,SSQL_SELECT) == SSQL_NORMAL) then
@@ -140,12 +142,35 @@ proc
             cursorOpen = true
 
             ; Define host variables
-            if (%ssc_define(db,cr,4,EMP_ID,^a(EMP_HIRE_DATE),^a(EMP_HIRE_TIME),EMP_DATE_OF_BIRTH) == SSQL_NORMAL) then
+            if (%ssc_define(db,cr,15,
+            &    emp_id,
+            &    emp_first_name,
+            &    emp_last_name,
+            &    emp_dept,
+            &    tmpEmpHireDate,
+            &    tmpEmpHireTime,
+            &    emp_phone_work,
+            &    emp_phone_cell,
+            &    emp_paid,
+            &    tmpEmpDateOfBirth,
+            &    emp_email,
+            &    emp_address_street,
+            &    emp_address_city,
+            &    emp_address_state,
+            &    emp_address_zip
+            &    ) == SSQL_NORMAL) then
             begin
                 ; Execute cursor
                 if (%ssc_move(db,cr) == SSQL_NORMAL) then
                 begin
                     writes(tt,"Row retrieved")
+
+                    ; Move the date and time fields from temp storage into the record
+                    emp_hire_date = tmpEmpHireDate.date8
+                    emp_hire_time = tmpEmpHireTime.time4
+                    emp_birth.date = tmpEmpDateOfBirth.date8
+                    emp_birth.time = tmpEmpDateOfBirth.time4
+
                     call PrintEmployee
 
                     ; Close cursor
@@ -198,10 +223,11 @@ proc
     stop
 
 PrintEmployee,
-    writes(tt," - EMP_ID                        : " + ^a(EMP_ID))
-    writes(tt," - EMP_HIRE_DATE          (DATE) : " + %string(EMP_HIRE_DATE.date,"XXXX-XX-XX"))
-    writes(tt," - EMP_HIRE_TIME          (TIME) : " + %string(EMP_HIRE_TIME.time,"XX:XX:XX"))
-    writes(tt," - EMP_DATE_OF_BIRTH  (DATETIME) : " + %string(EMP_DATE_OF_BIRTH.datetime,"XXXX-XX-XX XX:XX:XX"))
+    writes(tt," - Employee ID               : " + ^a(EMP_ID))
+    writes(tt," - Hire date          (DATE) : " + %string(emp_hire_date,"XXXX-XX-XX"))
+    writes(tt," - Hire time          (TIME) : " + %string(emp_hire_time,"XX:XX"))
+    writes(tt," - Date of birth  (DATETIME) : " + %string(emp_birth.date,"XXXX-XX-XX"))
+    writes(tt," - Time of birth  (DATETIME) : " + %string(emp_birth.time,"XX:XX"))
     return
 
 endmain
